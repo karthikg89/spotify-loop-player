@@ -135,8 +135,7 @@ function App() {
 
   const handleLogin = () => {
     const CLIENT_ID = '90578a866be642ed97064a098d97fecd';
-    // Update this to match your GitHub Pages URL
-    const REDIRECT_URI = 'https://yourusername.github.io/repository-name/';
+    const REDIRECT_URI = 'https://karthikg89.github.io/spotify-loop-player/';
     const scopes = [
       'user-read-playback-state',
       'user-modify-playback-state',
