@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import SpotifyWebApi from 'spotify-web-api-js';
 import './App.css';
 
@@ -15,6 +15,11 @@ function App() {
   const [duration, setDuration] = useState(0);
   const [isDragging, setIsDragging] = useState(null); // 'start', 'end', or null
   const [playerState, setPlayerState] = useState(null);
+  const [showLoopControls, setShowLoopControls] = useState(false);
+
+  const loopStartRef = useRef(null);
+  const loopEndRef = useRef(null);
+  const justFinishedDragging = useRef(false);
 
   useEffect(() => {
     // Get token from URL params (after Spotify auth redirect)
@@ -99,26 +104,88 @@ function App() {
     }
   }, [player, isLooping, loopStart, loopEnd, isDragging]);
 
-  // Update the keyboard event listener useEffect
+  // Define the adjustment handlers with useCallback
+  const adjustLoopStart = useCallback((adjustment) => {
+    const newStart = Math.min(loopStart + adjustment, loopEnd);
+    setLoopStart(newStart);
+    // Always seek when adjusting start with arrow keys
+    if (player) {
+      player.seek(newStart).catch(err => console.error('Seek error:', err));
+    }
+  }, [loopStart, loopEnd, setLoopStart, player]);
+
+  const adjustLoopEnd = useCallback((adjustment) => {
+    const newEnd = Math.max(loopEnd + adjustment, loopStart);
+    setLoopEnd(newEnd);
+  }, [loopEnd, loopStart, setLoopEnd]);
+
+  const handleNextTrack = useCallback(async () => {
+    if (!player) return;
+    setIsLooping(false);
+    await player.nextTrack();
+  }, [player, setIsLooping]);
+
+  const handlePreviousTrack = useCallback(async () => {
+    if (!player) return;
+    setIsLooping(false);
+    await player.previousTrack();
+  }, [player, setIsLooping]);
+
+  const handlePlayPause = useCallback(async () => {
+    if (!player) return;
+    const state = await player.getCurrentState();
+    if (state?.paused) {
+      await player.resume();
+    } else {
+      await player.pause();
+    }
+  }, [player]);
+
+  // Add the restart loop handler with useCallback
+  const handleRestartLoop = useCallback(() => {
+    if (player) {
+      player.seek(loopStart).catch(err => console.error('Seek error:', err));
+    }
+  }, [player, loopStart]);
+
+  // Update the keyboard event listener useEffect to include the 'r' key
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       
+      const adjustment = 10; // Fixed 10ms adjustment
+
       switch(e.code) {
         case 'Space':
           e.preventDefault();
           handlePlayPause();
           break;
+        case 'KeyR': // Add handler for 'r' key
+          e.preventDefault();
+          handleRestartLoop();
+          break;
         case 'ArrowRight':
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             handleNextTrack();
+          } else if (e.shiftKey) {
+            e.preventDefault();
+            adjustLoopEnd(adjustment);
+          } else {
+            e.preventDefault();
+            adjustLoopStart(adjustment);
           }
           break;
         case 'ArrowLeft':
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             handlePreviousTrack();
+          } else if (e.shiftKey) {
+            e.preventDefault();
+            adjustLoopEnd(-adjustment);
+          } else {
+            e.preventDefault();
+            adjustLoopStart(-adjustment);
           }
           break;
         default:
@@ -131,11 +198,12 @@ function App() {
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [player]);
+  }, [handlePlayPause, handleNextTrack, handlePreviousTrack, adjustLoopStart, adjustLoopEnd, handleRestartLoop]);
 
   const handleLogin = () => {
     const CLIENT_ID = '90578a866be642ed97064a098d97fecd';
-    const REDIRECT_URI = 'https://karthikg89.github.io/spotify-loop-player/';
+    const REDIRECT_URI = 'http://localhost:3000/callback'; // Ensure this matches the dashboard
+    // const REDIRECT_URI = 'https://karthikg89.github.io/spotify-loop-player/'; // Old production URI
     const scopes = [
       'user-read-playback-state',
       'user-modify-playback-state',
@@ -145,25 +213,26 @@ function App() {
     window.location.href = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes.join(' '))}&response_type=token`;
   };
 
-  // Add playback controls
-  const handlePlayPause = async () => {
-    if (!player) return;
-    const state = await player.getCurrentState();
-    if (state?.paused) {
-      await player.resume();
-    } else {
-      await player.pause();
-    }
+  const formatCurrentTime = (ms) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`; // Format as mm:ss
   };
 
-  const formatTime = (ms) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const formatLoopTime = (ms) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const hundredths = Math.floor((ms % 1000) / 10);
+
+    return `${minutes}:${seconds.toString().padStart(2, '0')}:${hundredths.toString().padStart(2, '0')}`; // Format as mm:ss:hh
   };
 
   const handleTimelineClick = (e) => {
+    if (justFinishedDragging.current) {
+      return;
+    }
+
     const timeline = e.currentTarget;
     const rect = timeline.getBoundingClientRect();
     const clickPosition = (e.clientX - rect.left) / rect.width;
@@ -190,22 +259,33 @@ function App() {
 
   const handleMouseMove = (e) => {
     if (!isDragging) return;
-    
+
     const timeline = document.querySelector('.timeline');
     const rect = timeline.getBoundingClientRect();
     const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const timePosition = position * duration;
-    
+
     if (isDragging === 'start') {
-      setLoopStart(Math.min(timePosition, loopEnd));
+      const newStart = Math.min(timePosition, loopEnd);
+      setLoopStart(newStart);
     } else if (isDragging === 'end') {
-      setLoopEnd(Math.max(timePosition, loopStart));
+      const newEnd = Math.max(timePosition, loopStart);
+      setLoopEnd(newEnd);
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
+    if (isDragging === 'start' && isLooping && player) {
+      // Only seek to start position if we were dragging the start marker and looping is active
+      player.seek(loopStart).catch(err => console.error('Seek error:', err));
+    }
+    justFinishedDragging.current = true;
+    // Reset the flag after a short delay
+    setTimeout(() => {
+      justFinishedDragging.current = false;
+    }, 100);
     setIsDragging(null);
-  };
+  }, [isDragging, isLooping, player, loopStart]);
 
   // Add this useEffect to handle mouse events
   useEffect(() => {
@@ -218,20 +298,7 @@ function App() {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, duration, loopStart, loopEnd]);
-
-  // Add these functions after handlePlayPause
-  const handleNextTrack = async () => {
-    if (!player) return;
-    setIsLooping(false);  // Turn off looping
-    await player.nextTrack();
-  };
-
-  const handlePreviousTrack = async () => {
-    if (!player) return;
-    setIsLooping(false);  // Turn off looping
-    await player.previousTrack();
-  };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
     <div className="App">
@@ -253,8 +320,8 @@ function App() {
               justifyContent: 'space-between',
               marginBottom: '5px'
             }}>
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+              <span>{formatCurrentTime(currentTime)}</span>
+              <span>{formatCurrentTime(duration)}</span>
             </div>
 
             <div 
@@ -334,28 +401,32 @@ function App() {
             {/* Loop timestamps only */}
             <div className="time-display" style={{ 
               position: 'relative',
-              height: '20px',  // Fixed height for loop timestamps
+              height: '20px',
               marginTop: '15px'
             }}>
               {Math.abs((loopEnd - loopStart) / duration) > 0.1 ? (
                 <>
-                  <div style={{ 
-                    position: 'absolute', 
-                    left: `${(loopStart / duration) * 100}%`,
-                    transform: 'translateX(-50%)',
-                    color: '#1db954',
-                    fontWeight: 'bold'
-                  }}>
-                    {formatTime(loopStart)}
+                  <div className="timestamp-container" 
+                    style={{ 
+                      left: `${(loopStart / duration) * 100}%`,
+                      color: '#1db954',
+                      fontWeight: 'bold',
+                      cursor: 'default'
+                    }}
+                    title="Use arrow keys to adjust start, Shift+arrow keys to adjust end"
+                  >
+                    <span>{formatLoopTime(loopStart)}</span>
                   </div>
-                  <div style={{ 
-                    position: 'absolute', 
-                    left: `${(loopEnd / duration) * 100}%`,
-                    transform: 'translateX(-50%)',
-                    color: '#1db954',
-                    fontWeight: 'bold'
-                  }}>
-                    {formatTime(loopEnd)}
+                  <div className="timestamp-container" 
+                    style={{ 
+                      left: `${(loopEnd / duration) * 100}%`,
+                      color: '#1db954',
+                      fontWeight: 'bold',
+                      cursor: 'default'
+                    }}
+                    title="Use arrow keys to adjust start, Shift+arrow keys to adjust end"
+                  >
+                    <span>{formatLoopTime(loopEnd)}</span>
                   </div>
                 </>
               ) : (
@@ -366,11 +437,48 @@ function App() {
                   color: '#1db954',
                   fontWeight: 'bold'
                 }}>
-                  {formatTime(loopStart)} - {formatTime(loopEnd)}
+                  {formatLoopTime(loopStart)} - {formatLoopTime(loopEnd)}
                 </div>
               )}
             </div>
           </div>
+
+          {showLoopControls && (
+            <div className="loop-inputs">
+              <label>
+                Loop Start (ms):
+                <input
+                  type="number"
+                  ref={loopStartRef}
+                  value={loopStart}
+                  onChange={(e) => {
+                    const newValue = Number(e.target.value);
+                    setLoopStart(newValue);
+                    // Optionally, you can also seek to the new loop start position
+                    if (player) {
+                      player.seek(newValue).catch(err => console.error('Seek error:', err));
+                    }
+                  }}
+                />
+              </label>
+              <label>
+                Loop End (ms):
+                <input
+                  type="number"
+                  ref={loopEndRef}
+                  value={loopEnd}
+                  onChange={(e) => {
+                    const newValue = Number(e.target.value);
+                    setLoopEnd(newValue);
+                    // Optionally, you can also seek to the new loop end position
+                    if (player) {
+                      player.seek(newValue).catch(err => console.error('Seek error:', err));
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          )}
 
           <div className="controls" style={{ 
             marginTop: '20px',
