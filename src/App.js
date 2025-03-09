@@ -17,10 +17,16 @@ function App() {
   const [isDragging, setIsDragging] = useState(null); // 'start', 'end', or null
   const [playerState, setPlayerState] = useState(null);
   const [showLoopControls, setShowLoopControls] = useState(false);
+  const [countInEnabled, setCountInEnabled] = useState(false);
+  const [isCountingIn, setIsCountingIn] = useState(false);
+  const [bpm, setBpm] = useState(120);
 
   const loopStartRef = useRef(null);
   const loopEndRef = useRef(null);
   const justFinishedDragging = useRef(false);
+  const countInTimeoutRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const oscillatorRef = useRef(null);
 
   useEffect(() => {
     // Get token from URL params (after Spotify auth redirect)
@@ -74,19 +80,86 @@ function App() {
       player.addListener('player_state_changed', (state) => {
         if (state) {
           setPlayerState(state);
+          const track = state.track_window.current_track;
           setCurrentTrack({
-            name: state.track_window.current_track.name,
-            artist: state.track_window.current_track.artists[0].name,
+            name: track.name,
+            artist: track.artists[0].name,
             duration: state.duration,
-            uri: state.track_window.current_track.uri
+            uri: track.uri,
+            id: track.id
           });
           setDuration(state.duration);
         }
       });
     }
-  }, [player, currentTrack]);
+  }, [player]);
 
-  // Update the loop checking useEffect
+  // Move handleCountIn above the loop checking effect
+  const handleCountIn = useCallback(async () => {
+    if (!player) return;
+    
+    // If counting in, cancel it
+    if (isCountingIn) {
+      if (countInTimeoutRef.current) {
+        clearTimeout(countInTimeoutRef.current);
+        countInTimeoutRef.current = null;
+      }
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop();
+        oscillatorRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      setIsCountingIn(false);
+      return;
+    }
+    
+    // Pause playback before starting count-in
+    await player.pause();
+    setIsCountingIn(true);
+    
+    audioContextRef.current = new AudioContext();
+    oscillatorRef.current = audioContextRef.current.createOscillator();
+    const gainNode = audioContextRef.current.createGain();
+    
+    oscillatorRef.current.connect(gainNode);
+    gainNode.connect(audioContextRef.current.destination);
+    
+    const beatDuration = 60000 / bpm; // Use the bpm state here
+    
+    // Play 4 clicks
+    for (let i = 0; i < 4; i++) {
+      const time = audioContextRef.current.currentTime + (i * beatDuration / 1000);
+      
+      // Higher pitch for first beat
+      oscillatorRef.current.frequency.setValueAtTime(i === 0 ? 1000 : 800, time);
+      
+      gainNode.gain.setValueAtTime(0, time);
+      gainNode.gain.linearRampToValueAtTime(0.5, time + 0.001);
+      gainNode.gain.linearRampToValueAtTime(0, time + 0.1);
+    }
+    
+    oscillatorRef.current.start();
+    oscillatorRef.current.stop(audioContextRef.current.currentTime + (4 * beatDuration / 1000));
+    
+    // Start playback after count-in
+    countInTimeoutRef.current = setTimeout(async () => {
+      setIsCountingIn(false);
+      countInTimeoutRef.current = null;
+      oscillatorRef.current = null;
+      audioContextRef.current = null;
+      
+      if (player) {
+        await player.seek(loopStart);
+        await player.resume();
+        setIsLooping(true);
+      }
+    }, 4 * beatDuration);
+  }, [player, loopStart, isCountingIn, bpm]);
+
+  // Then the loop checking effect
   useEffect(() => {
     if (player) {
       const timeInterval = setInterval(async () => {
@@ -95,15 +168,19 @@ function App() {
           setCurrentTime(state.position);
           
           // Only seek to start position if looping is enabled and we're past the end
-          if (isLooping && state.position >= loopEnd && !isDragging) {
-            player.seek(loopStart).catch(err => console.error('Seek error:', err));
+          if (isLooping && state.position >= loopEnd && !isDragging && !isCountingIn) {
+            if (countInEnabled) {
+              handleCountIn(); // Use count-in when enabled
+            } else {
+              player.seek(loopStart).catch(err => console.error('Seek error:', err));
+            }
           }
         }
       }, 100);
 
       return () => clearInterval(timeInterval);
     }
-  }, [player, isLooping, loopStart, loopEnd, isDragging]);
+  }, [player, isLooping, loopStart, loopEnd, isDragging, countInEnabled, handleCountIn, isCountingIn]);
 
   // Define the adjustment handlers with useCallback
   const adjustLoopStart = useCallback((adjustment) => {
@@ -149,7 +226,31 @@ function App() {
     }
   }, [player, loopStart]);
 
-  // Update the keyboard event listener useEffect to include the 'r' key
+  // Update the loop toggle handler
+  const toggleLoop = useCallback(() => {
+    setIsLooping(!isLooping);
+    if (!isLooping && player) {
+      // When enabling loop, seek to start position
+      player.seek(loopStart).catch(err => console.error('Seek error:', err));
+    }
+  }, [isLooping, player, loopStart]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (countInTimeoutRef.current) {
+        clearTimeout(countInTimeoutRef.current);
+      }
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  // Then the useEffect that uses handleCountIn
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -161,9 +262,13 @@ function App() {
           e.preventDefault();
           handlePlayPause();
           break;
-        case 'KeyR': // Add handler for 'r' key
+        case 'KeyR': // Update handler for 'r' key
           e.preventDefault();
-          handleRestartLoop();
+          if (countInEnabled) {
+            handleCountIn();
+          } else {
+            handleRestartLoop();
+          }
           break;
         case 'ArrowRight':
           if (e.ctrlKey || e.metaKey) {
@@ -199,12 +304,11 @@ function App() {
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [handlePlayPause, handleNextTrack, handlePreviousTrack, adjustLoopStart, adjustLoopEnd, handleRestartLoop]);
+  }, [handlePlayPause, handleNextTrack, handlePreviousTrack, adjustLoopStart, adjustLoopEnd, handleRestartLoop, handleCountIn, countInEnabled]);
 
   const handleLogin = () => {
     const CLIENT_ID = '90578a866be642ed97064a098d97fecd';
-    // const REDIRECT_URI = 'http://localhost:3000/callback'; // Ensure this matches the dashboard
-    const REDIRECT_URI = 'https://karthikg89.github.io/spotify-loop-player/'; // Old production URI
+    const REDIRECT_URI = 'http://localhost:3000/callback';
     const scopes = [
       'user-read-playback-state',
       'user-modify-playback-state',
@@ -516,14 +620,48 @@ function App() {
             </button>
 
             <button 
-              onClick={() => setIsLooping(!isLooping)}
+              onClick={toggleLoop}
               className={`control-button ${isLooping ? 'active' : ''}`}
               aria-label="Toggle loop"
               title={isLooping ? "Stop Loop" : "Start Loop"}
             >
               🔁
             </button>
+
+            <div className={`count-in-group ${countInEnabled ? 'count-in-expanded' : ''}`}>
+              <button
+                onClick={() => setCountInEnabled(!countInEnabled)}
+                className={`control-button ${countInEnabled ? 'active' : ''}`}
+                title="Toggle Count-in"
+              >
+                🎵
+              </button>
+              
+              {countInEnabled && (
+                <>
+                  <input
+                    type="number"
+                    value={bpm}
+                    onChange={(e) => {
+                      const newBpm = Math.max(1, Math.min(300, Number(e.target.value)));
+                      setBpm(newBpm);
+                    }}
+                    title="BPM for count-in"
+                  />
+                  <label>BPM</label>
+                  <button
+                    onClick={handleCountIn}
+                    className="control-button"
+                    disabled={isCountingIn}
+                    title="Start with Count-in"
+                  >
+                    {isCountingIn ? '1-2-3-4' : 'Start'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+
           <Shortcuts /> {/* Add the Shortcuts component here */}
         </div>
       )}

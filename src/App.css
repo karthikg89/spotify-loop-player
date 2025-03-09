@@ -93,4 +93,52 @@ button:hover {
 
 .timestamp-container:hover .adjust-button {
     opacity: 1;
+}
+
+.count-in-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.count-in-controls input {
+  background: #282828;
+  color: white;
+  border: 1px solid #1db954;
+  border-radius: 4px;
+  padding: 5px;
+  text-align: center;
+}
+
+.count-in-controls label {
+  color: #1db954;
+}
+
+.count-in-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+}
+
+.count-in-expanded {
+  background: #282828;
+  border-radius: 20px;
+  padding: 5px 10px;
+}
+
+.count-in-group input {
+  background: transparent;
+  color: white;
+  border: 1px solid #1db954;
+  border-radius: 4px;
+  padding: 5px;
+  text-align: center;
+  width: 60px;
+}
+
+.count-in-group label {
+  color: #1db954;
 } 

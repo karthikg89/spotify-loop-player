@@ -1,0 +1,81 @@
+.shortcuts-container {
+  background-color: #121212;
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 8px;
+  margin: 20px 0;
+  text-align: center;
+  position: relative;
+}
+
+.shortcuts-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.shortcuts-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.arrow {
+  transition: transform 0.2s ease;
+  margin-left: 10px;
+}
+
+.shortcuts-list {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #121212;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  z-index: 1000;
+  min-width: 400px;
+  padding: 10px;
+}
+
+.shortcuts-container:hover .shortcuts-list {
+  opacity: 1;
+  visibility: visible;
+}
+
+.shortcuts-container ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 10px 0 0 0;
+}
+
+.shortcuts-container li {
+  margin: 5px 0;
+  font-size: 14px;
+  display: grid;
+  grid-template-columns: minmax(auto, max-content) auto 1fr;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.key {
+  background-color: #1db954;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  text-align: right;
+  justify-self: end;
+}
+
+.colon {
+  justify-self: center;
+  padding: 0 4px;
+}
+
+.description {
+  text-align: left;
+  justify-self: start;
+} 
