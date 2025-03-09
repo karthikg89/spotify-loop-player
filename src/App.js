@@ -308,7 +308,8 @@ function App() {
 
   const handleLogin = () => {
     const CLIENT_ID = '90578a866be642ed97064a098d97fecd';
-    const REDIRECT_URI = 'http://localhost:3000/callback';
+    // const REDIRECT_URI = 'http://localhost:3000/callback';
+    const REDIRECT_URI = 'https://karthikg89.github.io/spotify-loop-player/'; // Production URI
     const scopes = [
       'user-read-playback-state',
       'user-modify-playback-state',
