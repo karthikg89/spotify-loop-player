@@ -58,4 +58,39 @@ button:hover {
 .loop-inputs input[type="range"] {
   width: 100%;
   margin: 10px 0;
+}
+
+.adjust-button {
+    padding: 1px 4px;
+    background: transparent;
+    color: #1db954;
+    border: 1px solid #1db954;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    min-width: 16px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.adjust-button:hover {
+    background: #1db954;
+    color: white;
+}
+
+.timestamp-container {
+    position: absolute;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    outline: none;
+}
+
+.timestamp-container:focus {
+    color: #1ed760;
+}
+
+.timestamp-container:hover .adjust-button {
+    opacity: 1;
 } 
