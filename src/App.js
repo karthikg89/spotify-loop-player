@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import SpotifyWebApi from 'spotify-web-api-js';
 import './App.css';
+import Shortcuts from './Shortcuts'; // Import the Shortcuts component
 
 const spotifyApi = new SpotifyWebApi();
 
@@ -523,6 +524,7 @@ function App() {
               🔁
             </button>
           </div>
+          <Shortcuts /> {/* Add the Shortcuts component here */}
         </div>
       )}
     </div>
