@@ -9,38 +9,49 @@ const Shortcuts = () => {
         <span className="arrow">▼</span>
       </div>
       <div className="shortcuts-list">
-        <ul>
-          <li>
-            <span className="key">Space</span>
-            <span className="colon">:</span>
-            <span className="description">Play/Pause</span>
-          </li>
-          <li>
-            <span className="key">Arrow Left</span>
-            <span className="colon">:</span>
-            <span className="description">Move Start Loop Backward by 10ms</span>
-          </li>
-          <li>
-            <span className="key">Arrow Right</span>
-            <span className="colon">:</span>
-            <span className="description">Move Start Loop Forward by 10ms</span>
-          </li>
-          <li>
-            <span className="key">Shift + Arrow Left</span>
-            <span className="colon">:</span>
-            <span className="description">Move End Loop Backward by 10ms</span>
-          </li>
-          <li>
-            <span className="key">Shift + Arrow Right</span>
-            <span className="colon">:</span>
-            <span className="description">Move End Loop Forward by 10ms</span>
-          </li>
-          <li>
-            <span className="key">R</span>
-            <span className="colon">:</span>
-            <span className="description">Restart Loop (with count-in if enabled)</span>
-          </li>
-        </ul>
+        <div className="shortcuts-column">
+          <ul>
+            <li>
+              <span className="key">Space</span>
+              <span className="colon">:</span>
+              <span className="description">Play/Pause</span>
+            </li>
+            <li>
+              <span className="key">R</span>
+              <span className="colon">:</span>
+              <span className="description">Restart Loop</span>
+            </li>
+            <li>
+              <span className="key">S</span>
+              <span className="colon">:</span>
+              <span className="description">Set Loop Start</span>
+            </li>
+            <li>
+              <span className="key">E</span>
+              <span className="colon">:</span>
+              <span className="description">Set Loop End</span>
+            </li>
+          </ul>
+        </div>
+        <div className="shortcuts-column">
+          <ul>
+            <li>
+              <span className="key">←/→</span>
+              <span className="colon">:</span>
+              <span className="description">Move Loop Start</span>
+            </li>
+            <li>
+              <span className="key">Shift + ←/→</span>
+              <span className="colon">:</span>
+              <span className="description">Move Loop End</span>
+            </li>
+            <li>
+              <span className="key">Ctrl + ←/→</span>
+              <span className="colon">:</span>
+              <span className="description">Previous/Next&nbsp;Track</span>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   );

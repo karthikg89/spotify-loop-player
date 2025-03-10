@@ -250,7 +250,28 @@ function App() {
     };
   }, []);
 
-  // Then the useEffect that uses handleCountIn
+  // Add these callback functions near your other handlers
+  const setLoopStartToCurrent = useCallback(() => {
+    if (!player) return;
+    player.getCurrentState().then(state => {
+      if (state) {
+        const newStart = Math.min(state.position, loopEnd);
+        setLoopStart(newStart);
+      }
+    });
+  }, [player, loopEnd]);
+
+  const setLoopEndToCurrent = useCallback(() => {
+    if (!player) return;
+    player.getCurrentState().then(state => {
+      if (state) {
+        const newEnd = Math.max(state.position, loopStart);
+        setLoopEnd(newEnd);
+      }
+    });
+  }, [player, loopStart]);
+
+  // Update the keyboard event listener useEffect
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -262,13 +283,21 @@ function App() {
           e.preventDefault();
           handlePlayPause();
           break;
-        case 'KeyR': // Update handler for 'r' key
+        case 'KeyR':
           e.preventDefault();
           if (countInEnabled) {
             handleCountIn();
           } else {
             handleRestartLoop();
           }
+          break;
+        case 'KeyS': // Add handler for 'S' key
+          e.preventDefault();
+          setLoopStartToCurrent();
+          break;
+        case 'KeyE': // Add handler for 'E' key
+          e.preventDefault();
+          setLoopEndToCurrent();
           break;
         case 'ArrowRight':
           if (e.ctrlKey || e.metaKey) {
@@ -304,12 +333,13 @@ function App() {
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [handlePlayPause, handleNextTrack, handlePreviousTrack, adjustLoopStart, adjustLoopEnd, handleRestartLoop, handleCountIn, countInEnabled]);
+  }, [handlePlayPause, handleNextTrack, handlePreviousTrack, adjustLoopStart, adjustLoopEnd, 
+      handleRestartLoop, handleCountIn, countInEnabled, setLoopStartToCurrent, setLoopEndToCurrent]);
 
   const handleLogin = () => {
     const CLIENT_ID = '90578a866be642ed97064a098d97fecd';
-    // const REDIRECT_URI = 'http://localhost:3000/callback';
-    const REDIRECT_URI = 'https://karthikg89.github.io/spotify-loop-player/'; // Production URI
+    const REDIRECT_URI = 'http://localhost:3000/callback';
+    // const REDIRECT_URI = 'https://karthikg89.github.io/spotify-loop-player/'; // Production URI
     const scopes = [
       'user-read-playback-state',
       'user-modify-playback-state',

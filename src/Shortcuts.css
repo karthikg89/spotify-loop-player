@@ -1,42 +1,74 @@
 .shortcuts-container {
-  background-color: #121212;
-  color: #ffffff;
-  padding: 10px;
-  border-radius: 8px;
-  margin: 20px 0;
-  text-align: center;
+  margin-top: 20px;
   position: relative;
+  text-align: center;
 }
 
 .shortcuts-header {
-  display: flex;
+  background: transparent;
+  color: #1db954;
+  padding: 10px;
+  display: inline-flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
+  gap: 5px;
 }
 
 .shortcuts-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .arrow {
-  transition: transform 0.2s ease;
-  margin-left: 10px;
+  position: static;
+  transition: transform 0.3s ease;
 }
 
 .shortcuts-list {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  background-color: #121212;
+  background: #282828;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
   z-index: 1000;
-  min-width: 400px;
-  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #1db954;
+  min-width: 500px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.shortcuts-list::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #1db954;
+}
+
+.shortcuts-list::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 9px solid #282828;
 }
 
 .shortcuts-container:hover .shortcuts-list {
@@ -44,38 +76,41 @@
   visibility: visible;
 }
 
-.shortcuts-container ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 10px 0 0 0;
+.shortcuts-column {
+  flex: 1;
 }
 
-.shortcuts-container li {
-  margin: 5px 0;
-  font-size: 14px;
-  display: grid;
-  grid-template-columns: minmax(auto, max-content) auto 1fr;
-  gap: 8px;
+.shortcuts-column ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.shortcuts-column li {
+  margin-bottom: 8px;
+  display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
 }
 
 .key {
-  background-color: #1db954;
-  color: #ffffff;
+  background: #1a1a1a;
   padding: 2px 6px;
   border-radius: 4px;
-  font-weight: bold;
-  text-align: right;
-  justify-self: end;
+  font-family: monospace;
+  color: #1db954;
 }
 
 .colon {
-  justify-self: center;
-  padding: 0 4px;
+  color: #999;
 }
 
 .description {
-  text-align: left;
-  justify-self: start;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+/* Add arrow rotation on hover */
+.shortcuts-container:hover .arrow {
+  transform: rotate(180deg);
 } 
